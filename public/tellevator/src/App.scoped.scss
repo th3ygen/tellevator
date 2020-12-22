@@ -1,0 +1,82 @@
+.App {
+  position: relative;
+
+  height: 100vh;
+  width: 100%;
+}
+
+.home-wrapper {
+  position: relative;
+
+  height: fit-content;
+  width: 100%;
+
+  padding: 0 150px;
+
+  & > .header {
+    text-align: center;
+    font-size: 30px;
+
+    padding-top: 100px;
+  }
+
+  & > .body {
+
+    & > .guide {
+      & > span {
+        font-size: 20px;
+      }
+      
+      padding: 100px 0;
+    }
+
+    & > .urls {
+      height: fit-content;
+      width: 100%;
+  
+      & .url {
+        height: fit-content;
+        width: 100%;
+  
+        background-color: rgb(40, 26, 51);
+  
+        padding: 5px 10px;
+  
+        border-radius: 5px;
+  
+        & > .header {
+          padding: 10px;
+  
+          border-bottom: 1px solid rgba(white, .1);
+        }
+  
+        & > .body {
+          height: fit-content;
+          width: 100%;
+  
+          & > .body-item {
+            height: fit-content;
+            width: 100%;
+  
+            padding: 10px 15px;
+  
+            display: flex;
+  
+            & > .label {
+              padding-right: 15px;
+            }
+            & > .path {
+              & > span {
+                color: gray;
+              }
+            }
+          }
+        }
+      }
+    }
+
+  }
+
+  
+}
+

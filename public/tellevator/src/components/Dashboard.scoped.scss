@@ -1,0 +1,164 @@
+.wrapper {
+    position: relative;
+
+    height: 100%;
+    width: 100%;
+}
+
+.videoCall {
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    height: 100%;
+    width: auto;
+}
+
+.dashboard {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+
+    height: fit-content;
+    width: 100%;
+
+    & > .datetime {
+        position: relative;
+
+        height: fit-content;
+        width: 100%;
+
+        text-align: center;
+
+        margin-bottom: 6rem;
+
+        & > .time {
+            font-size: 9rem;
+            color: #00EEE6;
+        }
+        & > .date {
+            font-size: 3rem;
+            color: #00EEE6;
+        }
+    }
+    & > .stats {
+        position: relative;
+
+        height: fit-content;
+        width: fit-content;
+
+        margin: 0 auto;
+
+        display: flex;
+
+        & > .item {
+            position: relative;
+
+            height: 16rem;
+            width: 16rem;
+
+            margin: 0 30px;
+
+            background-color: #00EEE6;
+            border-radius: 10px;
+
+            & > .label {
+                text-align: center;
+                text-transform: capitalize;;
+                font-size: 1.3rem;
+                font-weight: bold;
+                color: #281A33;
+
+                padding: 10px 0;
+            }
+
+            & > .value {
+                margin-top: 1.3rem;
+                position: absolute;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+
+                font-size: 4rem;
+                color: #281A33;
+
+                width: 100%;
+
+                text-align: center;
+            }
+        }
+    }
+}
+
+.devices {
+    position: relative;
+
+    height: fit-content;
+    width: 100%;
+
+    & > .device {
+        position: relative;
+
+        & > .device-label {
+            position: relative;
+
+            height: fit-content;
+            width: fit-content;
+
+            background-color: rgb(228, 72, 228);
+
+            font-size: 14px;
+
+            padding: 1px 5px;
+            padding-right: 20px;
+
+            border-radius: 0 10px 0 0;
+        }
+
+        & > .device-container {
+            position: relative;
+
+            height: auto;
+            max-height: 70vh;
+            width: 100%;
+
+            background-color: rgb(36, 9, 23);
+
+            border-top: 3px solid rgb(228, 72, 228);
+
+            overflow: hidden;
+
+            & > .device-video {
+                height: auto;
+                width: 100%;
+                
+                object-fit: cover;
+
+                & > video {
+                    height: 100%;
+                    width: 100%;
+                }
+            }
+        }
+
+        & .device-details {
+            position: absolute;
+            bottom: -100%;
+            left: 0;
+
+            height: fit-content;
+            width: 100%;
+
+            background-color: rgb(228, 72, 228);
+
+            padding: 10px 20px;
+
+            transition: .3s all;
+        }
+
+        &:hover .device-details {
+            bottom: 0;
+        }
+    }
+}
