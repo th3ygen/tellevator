@@ -6,6 +6,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
+const bodyParser = require('body-parser');
 const { ExpressPeerServer } = require('peer');
 
 const app = express();
@@ -14,33 +15,43 @@ const server = require('https').createServer({
     key: fs.readFileSync(path.join(__dirname, 'cert/theygen.key'))
 }, app);
 
-// connect to mqtt broker
-require('./services/mqtt.service');
+(async () => {
+    // connect to mqtt broker
+    require('./services/mqtt.service');
 
-const controller = {
-    peer: require('./controllers/peer.controller')
-};
+    // init auth service
+    await require('./services/auth.service').init();
 
-// cors
-app.use(cors());
+    const controller = {
+        peer: require('./controllers/peer.controller')
+    };
 
-// routes
-app.use(require('./routers'));
-app.get('/wow', (req, res) => res.status(200).json({message: 'wow'}));
+    // cors
+    app.use(cors());
 
-// web static file
-app.use('/', express.static(path.join(__dirname, 'test')));
+    // body parser
+    app.use(bodyParser.json());
 
-// peerjs server
-const peerServer = ExpressPeerServer(server, {
-    path: '/peerserver'
-});
+    // routes
+    app.use(require('./routers'));
 
-peerServer.on('connection', controller.peer.conn);
-peerServer.on('disconnect', controller.peer.disc);
+    // peerjs server
+    const peerServer = ExpressPeerServer(server, {
+        path: '/peerserver',
+        key: process.env.PEERJS_KEY,
+        ssl: {
+            cert: fs.readFileSync(path.join(__dirname, 'cert/theygen.crt')),
+            key: fs.readFileSync(path.join(__dirname, 'cert/theygen.key'))
+        }
+    });
 
-app.use(peerServer);
+    peerServer.on('connection', controller.peer.conn);
+    peerServer.on('disconnect', controller.peer.disc);
 
-server.listen(8080, () => {
-    console.log(chalk.green('[SERVER]'), 'listening to port', chalk.yellow(8080));
-});
+    app.use(peerServer);
+
+    server.listen(8080, () => {
+        console.log(chalk.green('[SERVER]'), 'listening to port', chalk.yellow(8080));
+    });
+})();
+

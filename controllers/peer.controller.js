@@ -1,84 +1,122 @@
 const mqtt = require('../services/mqtt.service');
 const root = require('app-root-path').path;
 const fs = require('fs');
-const utils = require('util');
+const util = require('util');
 const path = require('path');
 
-const writeFileAsync = utils.promisify(fs.writeFile);
+const writeFileAsync = util.promisify(fs.writeFile);
 
-const peers = {};
-const admins = require(path.join(root, 'admins.json')).id;
+const peers = {
+    admin1: {
+        op: true,
+        caller: ''
+    }
+};
 const queue = [];
+const assigned = [];
 
 const utils = {
-    findAvailableOp: () => (
+    findAvailableOpId: () => (
         new Promise((resolve, reject) => {
-            const id = Object.keys(peers).find(x => ( peers[x].op && peers[x].caller === '' ));
+            try {
+                const id = Object.keys(peers).find(x => ( peers[x].op && peers[x].caller === '' ));
 
-            if (id) {
-                resolve(peers[id]);
-            } else {
-                reject();
+                if (id) {
+                    resolve(id);
+                } else {
+                    resolve('');
+                }
+            } catch(e) {
+                reject(e);
             }
-            
         })
-    ),
-    findAvailableOpId: async () => {
-        const peer = await utils.findAvailableOp();
-
-        if (peer) {
-            return peer.id;
-        }
-
-        return '';
-    }
+    )
 };
 
 // listen for client request
-mqtt.subscribe('peer/op/request');
-mqtt.subscribe('peer/op/freed');
+mqtt.subscribe('peer/op/call/req');
+mqtt.subscribe('peer/op/call/done');
 
 mqtt.on('message', async (topic, payload, packet) => {
-    const e = payload.toString();
+    try {
+        if (topic === 'peer/op/call/req' || topic === 'peer/op/call/done') {
+            const { data } = JSON.parse(payload);
 
-    if (topic === 'peer/op/request') {
-        const op = await utils.findAvailableOpId();
+            if(!data) {
+                return mqtt.publish('peer/op/call/res', JSON.stringify({
+                    opId: null, message: 'missing data in payload'
+                }));
+            }
 
-        if (op === '') {
-            queue.push(e);
-        } else {
-            peers[op].caller = e;
-            mqtt.publish('peer/op/available', {
-                dev: e, op
-            });
+            const { callerId } = data;
+
+            if (topic === 'peer/op/call/req') {
+                const opId = await utils.findAvailableOpId();
+    
+                if (opId === '') {
+                    queue.push(callerId);
+    
+                    mqtt.publish('peer/op/call/res', JSON.stringify({
+                        opId: null, message: 'queue'
+                    }));
+                } else {
+                    peers[opId].caller = callerId;
+    
+                    mqtt.publish('peer/op/call/res', JSON.stringify({
+                        opId, message: 'assigned'
+                    }));
+                }
+            }
+        
+            if (topic === 'peer/op/call/done') {
+                const opId = Object.keys(peers).find(k => (
+                    peers[k].caller === callerId
+                ));
+
+                console.log(opId);
+
+                if (peers[opId]) {
+                    if (queue.length > 0) {
+                        peers[opId].caller = queue[0];
+        
+                        mqtt.publish('peer/op/call/next', JSON.stringify({
+                            callerId: queue.shift(),
+                            opId
+                        }));
+                    } else {
+                        peers[opId].caller = '';
+                    }
+                } else throw new Error(`Admin id ${opId} does not exist`);
+            }
         }
-    }
 
-    if (topic === 'peer/op/freed') {
-        if (queue.length > 0) {
-            peers[e].caller = queue[0];
-            mqtt.publish('peer/op/available', {
-                dev: queue.shift(),
-                op: e
-            });
-        } else {
-            peers[e].caller = '';
-        }
+        console.log('peers:', peers);
+        console.log('queue:', queue);
+    } catch(e) {
+        console.log('Error:', e.message);
     }
+    
 });
 
 module.exports = {
     conn: peer => {
         if (process.env.DEBUG) {
-            console.log('Peer id:', peer.id, 'connected');
+            console.log('New peer connected', n);
         }
-
+        
         peers[peer.id] = {
             caller: '',
             op: admins.indexOf(peer.id) > -1,
             createdAt: Date.now()
         };
-        console.log(peers);
+
+        const list = Object.keys(peers).map(id => ({
+            id,
+            data: peers[id]
+        }));
+        mqtt.publish('peer/conn', JSON.stringify({
+            peers: list
+        }));
     },
     disc: peer => {
         // signals to all peers
@@ -90,10 +128,9 @@ module.exports = {
             peers[peer.id].caller = '';
             delete peers[peers[peer.id].caller];
 
-            mqtt.publish('peer/op/freed', peer.id);
+            mqtt.publish('peer/op/call/next', peer.id);
         }
     },
-    requestOp: utils.callAvailableOp,
     newAdmin: async id => {
         admins.push(id);
         await writeFileAsync(path.join(root, 'admins.json'), JSON.stringify(admins));
