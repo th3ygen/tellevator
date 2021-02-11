@@ -21,11 +21,11 @@ const server = require('https').createServer({
     console.log('MQTT connected');
 
     // connect to mongoDB
-    await require('./services/mongoose.service').connectWithRetry();
+    /* await require('./services/mongoose.service').connectWithRetry(); */
 
     /* load mongoose model */
-    require('./models/key.model');
-    require('./models/user.model');
+    /* require('./models/key.model');
+    require('./models/user.model'); */
     
     /* // init auth service
     await require('./services/auth.service').init(); */
