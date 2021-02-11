@@ -36,13 +36,35 @@ export class VideoCall extends Component {
             });
         };
 
-        const mqttConnAsync = url => (
+        const mqttConnAsync = (host) => (
             new Promise((resolve, reject) => {
-                const conn = MQTT.connect(url);
-                conn.on('connect', () => resolve(conn));
-                conn.on('error', e => reject({
-                    error: e
-                }));
+                let username = '', password = '';
+
+                const isLoggedIn = localStorage.getItem('mqttLoggedIn');
+                if (isLoggedIn === 'true') {
+                    username = localStorage.getItem('mqttUsername');
+                    password = localStorage.getItem('mqttPassword');
+                } else {
+                    username = prompt("MQTT broker username");
+                    password = prompt("MQTT broker password");
+                }
+
+                const conn = MQTT.connect(host, {
+                    port: 9001,
+                    username, password
+                });
+                conn.on('connect', () => {
+                    localStorage.setItem('mqttUsername', username);
+                    localStorage.setItem('mqttPassword', password);
+                    localStorage.setItem('mqttLoggedIn', 'true');
+
+                    resolve(conn);
+                });
+                conn.on('error', async e => {
+                    alert('Connection failure: ' + e)
+                    await mqttConnAsync(host);
+                    resolve(conn);
+                });
             })
         );
 
@@ -97,7 +119,7 @@ export class VideoCall extends Component {
 
             // connect to mqtt broker for signaling
             console.log('Connecting to MQTT broker...');
-            const mqtt = await mqttConnAsync('wss://theygen:9001');
+            const mqtt = await mqttConnAsync('wss://theygen');
 
             this.mqtt.current = mqtt;
 
@@ -106,9 +128,6 @@ export class VideoCall extends Component {
             } else {
                 console.log('Connected to MQTT broker');
             }
-
-            // subscribe to topic
-            mqtt.subscribe('peer/close');
 
             // listen to signals
             mqtt.on('message', (topic, payload, packet) => {
@@ -122,20 +141,13 @@ export class VideoCall extends Component {
                 }
             });
 
-            // connect to peer server
-            const peerOpts = {
-                host: 'theygen',
-                port: 8080,
-                path: '/peerserver'
-            };
-            
             console.log('Connecting to peer server...');
 
             let peer;
             if (this.state.id) {
-                peer = await peerConnAsync(this.state.id, peerOpts);
+                peer = await peerConnAsync(this.state.id, 'https://theygen:8080/peerserver');
             } else {
-                peer = await peerConnAsync('', peerOpts);
+                peer = await peerConnAsync('', 'https://theygen:8080/peerserver');
             }
 
             this.peer.current = peer;
@@ -147,6 +159,8 @@ export class VideoCall extends Component {
             }
 
             if (this.state.role === 'admin') {
+                mqtt.subscribe('peer/op/call/done');
+
                 peer.on('call', c => {
                     this.setState({ caller: c.peer });
                     c.answer(stream, {
@@ -155,13 +169,38 @@ export class VideoCall extends Component {
 
                     c.on('stream', s => {
                         this.video.current.srcObject = s;
+
+                        /* mqtt.on('message', (topic, payload, packet) => {
+                            c.close();
+                        }); */
+                    });
+                    c.on('close', () => {
+                        this.video.current.srcObject = null;
                     });
                 });
             } else {
-                peer.call('admin', stream, {
-                    sdpTransform: limitBandwidth
-                }).on('stream', s => {
-                    this.video.current.srcObject = s;
+                mqtt.subscribe('peer/op/call/res');
+                mqtt.subscribe('peer/op/call/done');
+
+                mqtt.publish('peer/op/call/req', JSON.stringify({
+                    data: {
+                        callerId: this.state.id
+                    }
+                }));
+
+                mqtt.on('message', (topic, payload, packet) => {
+                    payload = JSON.parse(payload);
+
+                    if (topic === 'peer/op/call/res') {
+                        if (payload.message === 'assigned') {
+                            console.log('assigned', payload);
+                            peer.call(payload.opId, stream, {
+                                sdpTransform: limitBandwidth
+                            }).on('stream', s => {
+                                this.video.current.srcObject = s;
+                            });
+                        }
+                    }
                 });
             }
             

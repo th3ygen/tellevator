@@ -17,6 +17,7 @@ router.use('/res', require('./resource.router'));
 
 /* device key */
 router.get('/login', controller.device.login);
+router.get('/register', controller.device.register);
 router.get('/logout', middleware.jwt.verify, controller.device.login);
 router.get('/getmeakey', async (req, res) => {
     try {

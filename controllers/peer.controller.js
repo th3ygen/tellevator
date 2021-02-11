@@ -1,8 +1,9 @@
-const mqtt = require('../services/mqtt.service');
+const mqtt = require('../services/mqtt.service').client;
 const root = require('app-root-path').path;
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 const writeFileAsync = util.promisify(fs.writeFile);
 
@@ -33,72 +34,91 @@ const utils = {
     )
 };
 
-// listen for client request
-mqtt.subscribe('peer/op/call/req');
-mqtt.subscribe('peer/op/call/done');
-
-mqtt.on('message', async (topic, payload, packet) => {
-    try {
-        if (topic === 'peer/op/call/req' || topic === 'peer/op/call/done') {
-            const { data } = JSON.parse(payload);
-
-            if(!data) {
-                return mqtt.publish('peer/op/call/res', JSON.stringify({
-                    opId: null, message: 'missing data in payload'
-                }));
-            }
-
-            const { callerId } = data;
-
-            if (topic === 'peer/op/call/req') {
-                const opId = await utils.findAvailableOpId();
-    
-                if (opId === '') {
-                    queue.push(callerId);
-    
-                    mqtt.publish('peer/op/call/res', JSON.stringify({
-                        opId: null, message: 'queue'
-                    }));
-                } else {
-                    peers[opId].caller = callerId;
-    
-                    mqtt.publish('peer/op/call/res', JSON.stringify({
-                        opId, message: 'assigned'
-                    }));
-                }
-            }
-        
-            if (topic === 'peer/op/call/done') {
-                const opId = Object.keys(peers).find(k => (
-                    peers[k].caller === callerId
-                ));
-
-                console.log(opId);
-
-                if (peers[opId]) {
-                    if (queue.length > 0) {
-                        peers[opId].caller = queue[0];
-        
-                        mqtt.publish('peer/op/call/next', JSON.stringify({
-                            callerId: queue.shift(),
-                            opId
-                        }));
-                    } else {
-                        peers[opId].caller = '';
-                    }
-                } else throw new Error(`Admin id ${opId} does not exist`);
-            }
-        }
-
-        console.log('peers:', peers);
-        console.log('queue:', queue);
-    } catch(e) {
-        console.log('Error:', e.message);
-    }
-    
-});
 
 module.exports = {
+    mqttInit: () => {
+        // listen for client request
+        mqtt.subscribe('peer/op/call/req');
+        mqtt.subscribe('peer/op/call/done');
+
+        mqtt.on('message', async (topic, payload, packet) => {
+            console.log(topic);
+            try {
+                if (topic === 'peer/op/call/req' || topic === 'peer/op/call/done') {
+                    const { data } = JSON.parse(payload);
+
+                    console.log(data);
+
+                    if(!data) {
+                        return mqtt.publish('peer/op/call/res', JSON.stringify({
+                            opId: null, message: 'missing data in payload'
+                        }));
+                    }
+
+                    /* if(!token) {
+                        return mqtt.publish('peer/op/call/res', JSON.stringify({
+                            opId: null, message: 'missing token in payload'
+                        }));
+                    }
+
+                    const tokenPayload = jwt.verify(token);
+
+                    if(!tokenPayload) {
+                        return mqtt.publish('peer/op/call/res', JSON.stringify({
+                            opId: null, message: 'invalid token'
+                        }));
+                    } */
+
+                    const { callerId } = data;
+
+                    if (topic === 'peer/op/call/req') {
+                        const opId = await utils.findAvailableOpId();
+            
+                        if (opId === '') {
+                            queue.push(callerId);
+            
+                            mqtt.publish('peer/op/call/res', JSON.stringify({
+                                opId: null, message: 'queue'
+                            }));
+                        } else {
+                            peers[opId].caller = callerId;
+            
+                            mqtt.publish('peer/op/call/res', JSON.stringify({
+                                opId, message: 'assigned'
+                            }));
+                        }
+                    }
+                
+                    if (topic === 'peer/op/call/done') {
+                        const opId = Object.keys(peers).find(k => (
+                            peers[k].caller === callerId
+                        ));
+
+                        console.log(opId);
+
+                        if (peers[opId]) {
+                            if (queue.length > 0) {
+                                peers[opId].caller = queue[0];
+                
+                                mqtt.publish('peer/op/call/next', JSON.stringify({
+                                    callerId: queue.shift(),
+                                    opId
+                                }));
+                            } else {
+                                peers[opId].caller = '';
+                            }
+                        } else throw new Error(`Admin id ${opId} does not exist`);
+                    }
+                }
+
+                console.log('peers:', peers);
+                console.log('queue:', queue);
+            } catch(e) {
+                console.log('Error:', e.message);
+            }
+            
+        });
+    },
     conn: peer => {
         if (process.env.DEBUG) {
             console.log('New peer connected', n);

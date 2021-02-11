@@ -18,7 +18,8 @@ module.exports = {
             });
         }
         
-        req.token = isTokenValid;
+        req.token = token;
+        req.payload = isTokenValid;
 
         next();
     }

@@ -34,7 +34,7 @@ class Dashboard extends Component {
         setInterval(this.updateDateTime, 1000);
 
         this.setState({
-            ready: false
+            ready: true
         });
     }
 

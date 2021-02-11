@@ -17,14 +17,24 @@ const server = require('https').createServer({
 
 (async () => {
     // connect to mqtt broker
-    require('./services/mqtt.service');
+    await require('./services/mqtt.service').connect();
+    console.log('MQTT connected');
 
-    // init auth service
-    await require('./services/auth.service').init();
+    // connect to mongoDB
+    await require('./services/mongoose.service').connectWithRetry();
+
+    /* load mongoose model */
+    require('./models/key.model');
+    require('./models/user.model');
+    
+    /* // init auth service
+    await require('./services/auth.service').init(); */
 
     const controller = {
         peer: require('./controllers/peer.controller')
     };
+
+    controller.peer.mqttInit();
 
     // cors
     app.use(cors());
